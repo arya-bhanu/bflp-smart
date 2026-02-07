@@ -1,3 +1,4 @@
+import { cacheTag } from 'next/dist/server/use-cache/cache-tag';
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import type { SoalData, SoalJson } from '@/lib/types/soal'
@@ -20,6 +21,7 @@ export async function POST(request: NextRequest) {
       .from('session_soal')
       .select('*')
       .eq('session', session_id)
+      .eq('code_name', code_name)
       .maybeSingle()
 
     if (sessionCheckError) {
@@ -64,13 +66,38 @@ export async function POST(request: NextRequest) {
       .from('session_soal')
       .insert({
         session: session_id,
+        code_name: code_name,
         current_soal: currentSoal,
         current_number: 1
       })
       .select()
       .single()
 
+  
     if (insertError) {
+      // If it's a duplicate key error, fetch and return the existing session
+      if (insertError.code === '23505') {
+        const { data: existingData, error: fetchError } = await supabase
+          .from('session_soal')
+          .select('*')
+          .eq('session', session_id)
+          .eq('code_name', code_name)
+          .single()
+
+        if (fetchError || !existingData) {
+          return NextResponse.json(
+            { error: 'Failed to fetch existing session' },
+            { status: 500 }
+          )
+        }
+
+        return NextResponse.json({
+          success: true,
+          session: existingData,
+          isNew: false
+        })
+      }
+
       return NextResponse.json(
         { error: insertError.message },
         { status: 500 }

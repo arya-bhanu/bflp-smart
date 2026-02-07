@@ -6,7 +6,6 @@ import { v4 as uuidv4 } from 'uuid'
 const SESSION_KEY = 'user_session_id'
 
 export async function getOrCreateSessionId(): Promise<string> {
-  // Check if session exists in localStorage
   if (typeof window !== 'undefined') {
     const existingSession = localStorage.getItem(SESSION_KEY)
     if (existingSession) {
@@ -14,7 +13,6 @@ export async function getOrCreateSessionId(): Promise<string> {
     }
   }
 
-  // Try to generate fingerprint
   try {
     const fp = await FingerprintJS.load()
     const result = await fp.get()
@@ -26,7 +24,7 @@ export async function getOrCreateSessionId(): Promise<string> {
     
     return sessionId
   } catch (error) {
-    // Fallback to UUID if fingerprint fails
+  
     console.warn('Fingerprint generation failed, using UUID:', error)
     const sessionId = uuidv4()
     
@@ -48,5 +46,33 @@ export function getSessionId(): string | null {
 export function clearSession(): void {
   if (typeof window !== 'undefined') {
     localStorage.removeItem(SESSION_KEY)
+  }
+}
+
+export async function verifySession(sessionId: string): Promise<{ valid: boolean; sessions?: unknown[] }> {
+  try {
+    const response = await fetch('/api/session/verify', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        session_id: sessionId,
+      }),
+    })
+
+    const result = await response.json()
+
+    if (!response.ok) {
+      return { valid: false }
+    }
+
+    return {
+      valid: result.valid,
+      sessions: result.sessions || []
+    }
+  } catch (error) {
+    console.error('Session verification failed:', error)
+    return { valid: false }
   }
 }

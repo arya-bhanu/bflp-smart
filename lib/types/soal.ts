@@ -22,9 +22,8 @@ export interface SoalData {
 }
 
 export interface SessionSoal {
-  session_id: string
+  session: string
   code_name: string
-  session_number: number
   current_soal: SoalJson
   current_number: number
   created_at?: string
